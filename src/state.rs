@@ -1,5 +1,5 @@
-use cosmwasm_std::{Addr, Uint128, Coin, Timestamp};
-use cw_storage_plus::{Map, Item};
+use cosmwasm_std::{Addr, Coin, Timestamp, Uint128};
+use cw_storage_plus::{Item, Map};
 
 // registry of addresses and the amount they sent to the contract's bank account
 pub const CONTRIBUTIONS: Map<&Addr, Uint128> = Map::new("contributions");
