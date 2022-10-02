@@ -77,9 +77,17 @@ mod tests {
         // we can just call .unwrap() to assert this was a success
         let res = instantiate(deps.as_mut(), mock_env(), info, msg_no_receiver).unwrap();
         assert_eq!(0, res.messages.len());
-        assert_eq!(5, res.attributes.len())
+        assert_eq!(5, res.attributes.len());
 
-        assert_eq!("OSMO", deps.storage.get())
+        let init_threshold_coin = THRESHOLD_COIN.load(&deps.storage).unwrap();
+        assert_eq!("OSMO", init_threshold_coin.denom);
+        assert_eq!(Uint128::from(10_000_000u128), init_threshold_coin.amount);
+
+        let init_deadline = DEADLINE.load(&deps.storage).unwrap();
+        assert_eq!(Timestamp::from_seconds(10), init_deadline);
+
+        let init_receiver_non = RECEIVER.load(&deps.storage).ok();
+        assert_eq!(None, init_receiver_non);
 
         // it worked, let's query the state
         // let res = query(deps.as_ref(), mock_env(), QueryMsg::GetCount {}).unwrap();
