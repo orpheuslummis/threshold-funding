@@ -20,7 +20,7 @@ pub fn instantiate(
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     
-    THRESHOLD_COIN.save(deps.storage, &msg.coinThreshold)?;
+    THRESHOLD_COIN.save(deps.storage, &msg.coin_threshold)?;
     DEADLINE.save(deps.storage, &msg.deadline)?;
     RECEIVER.save(deps.storage, &msg.receiver.unwrap_or(info.sender.to_string()))?;
 
@@ -28,8 +28,8 @@ pub fn instantiate(
         .add_attribute("method", "instantiate")
         .add_attribute("owner", info.sender)
         .add_attribute("deadline-seconds", msg.deadline.seconds().to_string())
-        .add_attribute("threshold-amount", msg.coinThreshold.amount.to_string())
-        .add_attribute("threshold-denom", msg.coinThreshold.denom.to_string()))
+        .add_attribute("threshold-amount", msg.coin_threshold.amount.to_string())
+        .add_attribute("threshold-denom", msg.coin_threshold.denom.to_string()))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -71,7 +71,7 @@ mod tests {
     fn proper_initialization() {
         let mut deps = mock_dependencies();
 
-        let msg_no_receiver = InstantiateMsg { coinThreshold: Coin { denom: "OSMO".to_string(), amount: Uint128::from(10_000_000u128) }, deadline: Timestamp::from_seconds(10), receiver: None};
+        let msg_no_receiver = InstantiateMsg { coin_threshold: Coin { denom: "OSMO".to_string(), amount: Uint128::from(10_000_000u128) }, deadline: Timestamp::from_seconds(10), receiver: None};
         let info = mock_info("creator", &[]);
 
         // we can just call .unwrap() to assert this was a success
@@ -86,8 +86,8 @@ mod tests {
         let init_deadline = DEADLINE.load(&deps.storage).unwrap();
         assert_eq!(Timestamp::from_seconds(10), init_deadline);
 
-        let init_receiver_non = RECEIVER.load(&deps.storage).ok();
-        assert_eq!(None, init_receiver_non);
+        let init_receiver_none = RECEIVER.load(&deps.storage).unwrap();
+        assert_eq!("creator", init_receiver_none);
 
         // it worked, let's query the state
         // let res = query(deps.as_ref(), mock_env(), QueryMsg::GetCount {}).unwrap();

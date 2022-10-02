@@ -3,7 +3,7 @@ use cosmwasm_schema::{cw_serde, QueryResponses};
 
 #[cw_serde]
 pub struct InstantiateMsg {
-    pub coinThreshold: Coin,
+    pub coin_threshold: Coin,
     pub deadline: Timestamp,
     pub receiver: Option<String>, // creator if None
 }
