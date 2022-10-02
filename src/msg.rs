@@ -1,8 +1,11 @@
+use cosmwasm_std::{Coin, Timestamp};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 
 #[cw_serde]
 pub struct InstantiateMsg {
-    pub count: i32,
+    pub coinThreshold: Coin,
+    pub deadline: Timestamp,
+    pub receiver: Option<String>, // creator if None
 }
 
 #[cw_serde]
