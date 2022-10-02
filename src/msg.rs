@@ -1,5 +1,5 @@
-use cosmwasm_std::{Coin, Timestamp};
 use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_std::{Coin, Timestamp};
 
 #[cw_serde]
 pub struct InstantiateMsg {

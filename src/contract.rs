@@ -5,7 +5,7 @@ use cw2::set_contract_version;
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{THRESHOLD_COIN, DEADLINE, RECEIVER};
+use crate::state::{DEADLINE, RECEIVER, THRESHOLD_COIN};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:threshold-funding";
@@ -19,10 +19,13 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    
+
     THRESHOLD_COIN.save(deps.storage, &msg.coin_threshold)?;
     DEADLINE.save(deps.storage, &msg.deadline)?;
-    RECEIVER.save(deps.storage, &msg.receiver.unwrap_or(info.sender.to_string()))?;
+    RECEIVER.save(
+        deps.storage,
+        &msg.receiver.unwrap_or(info.sender.to_string()),
+    )?;
 
     Ok(Response::new()
         .add_attribute("method", "instantiate")
@@ -40,8 +43,12 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::Increment {} => Err(ContractError::CustomError { val: "".to_string() }),
-        ExecuteMsg::Reset { count } => Err(ContractError::CustomError { val: "".to_string() }),
+        ExecuteMsg::Increment {} => Err(ContractError::CustomError {
+            val: "".to_string(),
+        }),
+        ExecuteMsg::Reset { count } => Err(ContractError::CustomError {
+            val: "".to_string(),
+        }),
     }
 }
 
@@ -54,7 +61,9 @@ pub fn query(_deps: Deps, _env: Env, _msg: QueryMsg) -> StdResult<Binary> {
     // match msg {
     //     QueryMsg::GetCount {} => to_binary(&query::count(deps)?),
     // }
-    Err(cosmwasm_std::StdError::GenericErr { msg: "".to_string() })
+    Err(cosmwasm_std::StdError::GenericErr {
+        msg: "".to_string(),
+    })
 }
 
 pub mod query {
@@ -71,7 +80,14 @@ mod tests {
     fn proper_initialization() {
         let mut deps = mock_dependencies();
 
-        let msg_no_receiver = InstantiateMsg { coin_threshold: Coin { denom: "OSMO".to_string(), amount: Uint128::from(10_000_000u128) }, deadline: Timestamp::from_seconds(10), receiver: None};
+        let msg_no_receiver = InstantiateMsg {
+            coin_threshold: Coin {
+                denom: "OSMO".to_string(),
+                amount: Uint128::from(10_000_000u128),
+            },
+            deadline: Timestamp::from_seconds(10),
+            receiver: None,
+        };
         let info = mock_info("creator", &[]);
 
         // we can just call .unwrap() to assert this was a success
