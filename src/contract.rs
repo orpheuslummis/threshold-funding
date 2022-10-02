@@ -24,7 +24,7 @@ pub fn instantiate(
     DEADLINE.save(deps.storage, &msg.deadline)?;
     RECEIVER.save(
         deps.storage,
-        &msg.receiver.unwrap_or(info.sender.to_string()),
+        &msg.receiver.unwrap_or_else(|| info.sender.to_string()),
     )?;
 
     Ok(Response::new()
@@ -46,7 +46,7 @@ pub fn execute(
         ExecuteMsg::Increment {} => Err(ContractError::CustomError {
             val: "".to_string(),
         }),
-        ExecuteMsg::Reset { count } => Err(ContractError::CustomError {
+        ExecuteMsg::Reset { count: _ } => Err(ContractError::CustomError {
             val: "".to_string(),
         }),
     }
