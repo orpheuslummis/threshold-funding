@@ -69,7 +69,7 @@ pub mod execute {
             return Err(ContractError::DeadlinePassed {});
         }
 
-        let user = deps.api.addr_validate(&info.sender.to_string())?;
+        let user = deps.api.addr_validate(info.sender.as_ref())?;
 
         // TBD check if denom is correct
         if info.funds.len() != 1 || info.funds[0].denom != threshold_coin.denom {
@@ -106,7 +106,7 @@ pub mod execute {
             return Err(ContractError::DeadlinePassed {});
         }
 
-        let user = deps.api.addr_validate(&info.sender.to_string())?;
+        let user = deps.api.addr_validate(info.sender.as_ref())?;
 
         let amount = CONTRIBUTIONS
             .may_load(deps.storage, &user)?
@@ -177,7 +177,7 @@ pub mod execute {
                 .add_message(CosmosMsg::Bank(BankMsg::Send {
                     to_address: receiver,
                     amount: vec![Coin {
-                        denom: threshold_coin.denom.clone(),
+                        denom: threshold_coin.denom,
                         amount: total_contributions,
                     }],
                 })))
@@ -235,9 +235,7 @@ pub mod query {
 
     pub fn deadline(deps: Deps, _env: Env) -> StdResult<DeadlineResponse> {
         let timestamp = DEADLINE.may_load(deps.storage)?;
-        Ok(DeadlineResponse {
-            timestamp: timestamp,
-        })
+        Ok(DeadlineResponse { timestamp })
     }
 }
 
