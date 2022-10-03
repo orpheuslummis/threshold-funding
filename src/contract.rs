@@ -1,8 +1,8 @@
 use cosmwasm_schema::cw_serde;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::{
-    entry_point, to_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Env,
-    MessageInfo, Order, Response, StdResult, Timestamp, Uint128,
+    entry_point, to_binary, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo,
+    Order, Response, StdResult, Timestamp, Uint128,
 };
 use cw2::set_contract_version;
 
@@ -60,7 +60,7 @@ pub mod execute {
         deps: DepsMut,
         env: Env,
         info: MessageInfo,
-        coin: Coin,
+        _coin: Coin,
     ) -> Result<Response, ContractError> {
         let threshold_coin = THRESHOLD_COIN.load(deps.storage)?;
         let deadline = DEADLINE.load(deps.storage)?;
@@ -258,7 +258,7 @@ mod tests {
     use crate::contract::query::ContributionResponse;
     use cosmwasm_std::{
         testing::{mock_dependencies, mock_env, mock_info},
-        Empty,
+        Addr, Empty,
     };
     use cw_multi_test::{App, Contract, ContractWrapper, Executor};
 
