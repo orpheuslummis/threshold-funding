@@ -9,6 +9,12 @@ pub enum ContractError {
     #[error("Unauthorized")]
     Unauthorized {},
 
+    #[error("Deadline has passed")]
+    DeadlinePassed {},
+
+    #[error("Contribution too low")] // unused
+    ContributionTooLow {},
+
     #[error("Custom Error val: {val:?}")]
     CustomError { val: String },
     // Add any other custom errors you like here.
