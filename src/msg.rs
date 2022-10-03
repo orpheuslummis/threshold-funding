@@ -11,7 +11,9 @@ pub struct InstantiateMsg {
 #[cw_serde]
 pub enum ExecuteMsg {
     /// User's contribution.
-    ContributionMsg {},
+    ContributionMsg {
+        coin: Coin,
+    },
     /// Trigger the resolution of the market. (TBD not sure about 'market' terminology).
     ResolveMsg {},
     RefundMsg {},
@@ -20,32 +22,30 @@ pub enum ExecuteMsg {
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
-    #[returns(GetContribution)]
+    #[returns(ContributionResponse)]
     GetUserContribution { addr: String },
-    #[returns(GetContributionTotal)]
+    #[returns(ContributionTotalResponse)]
     GetTotalContribution {},
-    #[returns(GetDeadline)]
+    #[returns(DeadlineResponse)]
     GetDeadline {},
 }
 
-// TBD Get* structs here, and further structs in query ?
-
 #[cw_serde]
-pub struct GetContribution {
+pub struct ContributionResponse {
     pub coin: Coin,
 }
 
 #[cw_serde]
-pub struct GetContributionTotal {
+pub struct ContributionTotalResponse {
     pub cointotal: Coin,
 }
 
 #[cw_serde]
-pub struct GetDeadline {
+pub struct DeadlineResponse {
     pub timestamp: Timestamp,
 }
 
 #[cw_serde]
-pub struct GetReceiver {
+pub struct ReceiverResponse {
     pub receiver: Addr, // TBD or should it be String?
 }

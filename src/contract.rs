@@ -1,8 +1,8 @@
 use cosmwasm_schema::cw_serde;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::{
-    entry_point, to_binary, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo,
-    Order, Response, StdResult, Timestamp, Uint128,
+    entry_point, to_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Env,
+    MessageInfo, Order, Response, StdResult, Timestamp, Uint128,
 };
 use cw2::set_contract_version;
 
@@ -46,7 +46,7 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::ContributionMsg {} => execute::contribution(deps, env, info, msg),
+        ExecuteMsg::ContributionMsg { coin } => execute::contribution(deps, env, info, coin),
         ExecuteMsg::RefundMsg {} => execute::refund(deps, env, info, msg),
         ExecuteMsg::ResolveMsg {} => execute::resolve(deps, env, info, msg),
     }
@@ -60,12 +60,13 @@ pub mod execute {
         deps: DepsMut,
         env: Env,
         info: MessageInfo,
-        _: ExecuteMsg,
+        coin: Coin,
     ) -> Result<Response, ContractError> {
         let threshold_coin = THRESHOLD_COIN.load(deps.storage)?;
         let deadline = DEADLINE.load(deps.storage)?;
 
         if env.block.time > deadline {
+            // TODO you can be refunded
             return Err(ContractError::DeadlinePassed {});
         }
 
@@ -78,7 +79,13 @@ pub mod execute {
 
         let amount = info.funds[0].amount;
 
-        CONTRIBUTIONS.update(deps.storage, &user, |old| -> StdResult<_> {
+        // verify that the amount is the same as the ContributionMsg's amount
+        if amount != threshold_coin.amount {
+            return Err(ContractError::CustomError { val: String::new() });
+            // TODO you can trigger a refund
+        }
+
+        CONTRIBUTIONS.update(deps.storage, &user, |old| -> StdResult<Uint128> {
             match old {
                 Some(old) => Ok(old + amount),
                 None => Ok(amount),
@@ -203,12 +210,12 @@ pub mod query {
 
     #[cw_serde]
     pub struct ContributionResponse {
-        pub amount: Option<Uint128>,
+        pub amount: Uint128,
     }
 
     #[cw_serde]
     pub struct DeadlineResponse {
-        pub timestamp: Option<Timestamp>,
+        pub timestamp: Timestamp,
     }
 
     pub fn usercontribution(
@@ -217,24 +224,30 @@ pub mod query {
         addr: String,
     ) -> StdResult<ContributionResponse> {
         let user = deps.api.addr_validate(&addr)?;
-        let contribution = CONTRIBUTIONS.may_load(deps.storage, &user)?;
-        Ok(ContributionResponse {
-            amount: contribution,
-        })
+        dbg!(user.clone());
+        if let Some(contribution) = CONTRIBUTIONS.may_load(deps.storage, &user)? {
+            Ok(ContributionResponse {
+                amount: contribution,
+            })
+        } else {
+            Ok(ContributionResponse {
+                amount: Uint128::zero(), // TBD or we could do None
+            })
+        }
     }
 
     pub fn totalcontribution(deps: Deps, _env: Env) -> StdResult<ContributionResponse> {
         let contributions = CONTRIBUTIONS
             .range(deps.storage, None, None, Order::Ascending)
-            .map(|item| item.map(|(_, v)| v))
-            .fold(Uint128::zero(), |acc, item| acc + item.unwrap());
+            .map(|item| item.map(|(_, v)| v).unwrap())
+            .fold(Uint128::zero(), |acc, item| acc + item);
         Ok(ContributionResponse {
-            amount: Some(contributions),
+            amount: contributions,
         })
     }
 
     pub fn deadline(deps: Deps, _env: Env) -> StdResult<DeadlineResponse> {
-        let timestamp = DEADLINE.may_load(deps.storage)?;
+        let timestamp = DEADLINE.may_load(deps.storage)?.unwrap();
         Ok(DeadlineResponse { timestamp })
     }
 }
@@ -242,7 +255,40 @@ pub mod query {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
+    use crate::contract::query::ContributionResponse;
+    use cosmwasm_std::{
+        testing::{mock_dependencies, mock_env, mock_info},
+        Empty,
+    };
+    use cw_multi_test::{App, Contract, ContractWrapper, Executor};
+
+    fn contract() -> Box<dyn Contract<Empty>> {
+        let contract = ContractWrapper::new(execute, instantiate, query);
+        Box::new(contract)
+    }
+
+    fn contract_builder(deadline: Timestamp) -> (App, Addr) {
+        let mut app = App::default();
+        let contract_id = app.store_code(contract());
+        let contract_addr = app
+            .instantiate_contract(
+                contract_id,
+                Addr::unchecked("sender"),
+                &InstantiateMsg {
+                    coin_threshold: Coin {
+                        denom: "OSMO".to_string(),
+                        amount: Uint128::from(10_000_000u128),
+                    },
+                    deadline: deadline,
+                    receiver: None,
+                },
+                &[],
+                "Threshold Funding",
+                None,
+            )
+            .unwrap();
+        (app, contract_addr)
+    }
 
     #[test]
     fn proper_initialization() {
@@ -279,26 +325,178 @@ mod tests {
         // assert_eq!(17, value.count);
     }
 
+    // #[test]
+    // fn query_usercontribution() {
+    //     let mut deps = mock_dependencies();
+
+    //     instantiate(
+    //         deps.as_mut(),
+    //         mock_env(),
+    //         mock_info("creator", &[]),
+    //         InstantiateMsg {
+    //             coin_threshold: Coin {
+    //                 denom: "OSMO".to_string(),
+    //                 amount: Uint128::from(10_000_000u128),
+    //             },
+    //             deadline: Timestamp::from_seconds(10),
+    //             receiver: None,
+    //         },
+    //     )
+    //     .unwrap();
+
+    //     execute(
+    //         deps.as_mut(),
+    //         mock_env(),
+    //         mock_info("anyone", &[]),
+    //         ExecuteMsg::ContributionMsg {
+    //             coin: Coin {
+    //                 denom: "OSMO".to_string(),
+    //                 amount: Uint128::from(1_000_000u128),
+    //             },
+    //         },
+    //     )
+    //     .unwrap();
+
+    //     let _res = query(
+    //         deps.as_ref(),
+    //         mock_env(),
+    //         QueryMsg::GetUserContribution {
+    //             addr: "anyone".to_string(),
+    //         },
+    //     )
+    //     .unwrap();
+    //     // let err = from_binary(&res).unwrap_err();
+    //     // assert that value is of Error DeadlinePassed
+    //     // assert_eq!(ContractError::DeadlinePassed {}, err.downcast().unwrap());
+    //     // assert_eq!(Uint128::from(1_000_000u128), value.amount.unwrap());
+    // }
+
+    // #[test]
+    // fn onecontribution() {
+    //     let (mut app, contract_addr) = contract_builder(Timestamp::from_seconds(10));
+
+    //     let c = Coin {
+    //         denom: String::from("OSMO"),
+    //         amount: Uint128::from(1000u128),
+    //     };
+
+    //     let r1_addr = Addr::unchecked("sender1");
+    //     let r1 = app.execute_contract(
+    //         r1_addr.clone(),
+    //         contract_addr.clone(),
+    //         &ExecuteMsg::ContributionMsg { coin: c.clone() },
+    //         &[c.clone(), c.clone(), c.clone()],
+    //     );
+
+    //     dbg!(&r1);
+    //     // assert!(r1.is_ok());
+
+    //     let query_resp: ContributionResponse = app
+    //         .wrap()
+    //         .query_wasm_smart(
+    //             contract_addr,
+    //             &QueryMsg::GetUserContribution {
+    //                 addr: r1_addr.into_string(),
+    //             },
+    //         )
+    //         .unwrap();
+
+    //     assert_eq!(
+    //         query_resp,
+    //         ContributionResponse {
+    //             amount: Uint128::from(1000u128),
+    //         }
+    //     );
+    // }
+
     #[test]
-    fn query_usercontribution() {
-        let mut deps = mock_dependencies();
+    fn totalcontribution_0() {
+        let mut app = App::default();
+        let contract_id = app.store_code(contract());
+        let contract_addr = app
+            .instantiate_contract(
+                contract_id,
+                Addr::unchecked("sender"),
+                &InstantiateMsg {
+                    coin_threshold: Coin {
+                        denom: "OSMO".to_string(),
+                        amount: Uint128::from(10_000_000u128),
+                    },
+                    deadline: Timestamp::from_seconds(10),
+                    receiver: None,
+                },
+                &[],
+                "Threshold Funding",
+                None,
+            )
+            .unwrap();
 
-        let msg_no_receiver = InstantiateMsg {
-            coin_threshold: Coin {
-                denom: "OSMO".to_string(),
-                amount: Uint128::from(10_000_000u128),
-            },
-            deadline: Timestamp::from_seconds(10),
-            receiver: None,
-        };
-        let info = mock_info("creator", &[]);
+        let resp: ContributionResponse = app
+            .wrap()
+            .query_wasm_smart(contract_addr, &QueryMsg::GetTotalContribution {})
+            .unwrap();
 
-        instantiate(deps.as_mut(), mock_env(), info, msg_no_receiver).unwrap();
-
-        // TODO
+        assert_eq!(
+            resp,
+            ContributionResponse {
+                amount: Uint128::from(0u128),
+            }
+        );
     }
 
-    // TODO test query::totalcontribution
+    // #[test]
+    // fn totalcontribution_100() {
+    //     let mut app = App::default();
+    //     let contract_id = app.store_code(contract());
+    //     let contract_addr = app
+    //         .instantiate_contract(
+    //             contract_id,
+    //             Addr::unchecked("sender"),
+    //             &InstantiateMsg {
+    //                 coin_threshold: Coin {
+    //                     denom: "OSMO".to_string(),
+    //                     amount: Uint128::from(10_000_000u128),
+    //                 },
+    //                 deadline: Timestamp::from_seconds(10),
+    //                 receiver: None,
+    //             },
+    //             &[],
+    //             "Threshold Funding",
+    //             None,
+    //         )
+    //         .unwrap();
+
+    //     let c = Coin {
+    //         denom: "OSMO".to_string(),
+    //         amount: Uint128::from(50u128),
+    //     };
+    //     let _r1 = app.execute_contract(
+    //         Addr::unchecked("sender1"),
+    //         contract_addr.clone(),
+    //         &ExecuteMsg::ContributionMsg { coin: c.clone() },
+    //         &[c.clone()],
+    //     );
+
+    //     let _r2 = app.execute_contract(
+    //         Addr::unchecked("sender2"),
+    //         contract_addr.clone(),
+    //         &ExecuteMsg::ContributionMsg { coin: c.clone() },
+    //         &[c.clone()],
+    //     );
+
+    //     let resp: ContributionResponse = app
+    //         .wrap()
+    //         .query_wasm_smart(contract_addr, &QueryMsg::GetTotalContribution {})
+    //         .unwrap();
+    //     assert_eq!(
+    //         resp,
+    //         ContributionResponse {
+    //             amount: Uint128::from(100u128),
+    //         }
+    //     );
+    // }
+
+    // TODO test when doing a contribution, the declared amount is equal to the sent amount
 
     // TODO test query:deadline
 
